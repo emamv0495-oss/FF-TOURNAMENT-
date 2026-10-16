@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14213d">
+<title>FF Arena</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e8ebf0;--surface:#fff;--ink:#14213d;--muted:#5b6785;--line:#cdd3df;--flame:#f2542d;--sun:#fcbf49;--ok:#1f9d55;--on-flame:#fff;--nav:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#14213d;--surface:#1d2d52;--ink:#f1f3f8;--muted:#a3aecb;--line:#33466f;--nav:#1d2d52}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hind Siliguri",system-ui,sans-serif;font-size:16px;line-height:1.45}
+header{padding:12px 16px;position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;font-size:20px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+main{max-width:640px;margin:0 auto;padding:0 16px 96px}
+h2{font-size:18px;margin:6px 0 12px}
+.card,.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:14px;padding:14px}
+.ch{display:flex;justify-content:space-between;gap:8px}.ch b{font-size:17px}
+.id{background:var(--flame);color:var(--on-flame);border-radius:6px;padding:0 8px;font-size:13px;font-weight:700;height:22px}
+.when{color:var(--flame);font-size:14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px 0;text-align:center}
+.stats small{display:block;color:var(--muted);font-size:12px}.stats b{font-size:16px}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden}.bar div{height:100%;background:var(--ok)}
+.sp{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin:4px 0 10px}
+button{font-family:inherit;font-size:15px;cursor:pointer}
+.p{width:100%;background:var(--flame);color:var(--on-flame);border:0;border-radius:8px;padding:10px;font-weight:600}
+.p:disabled{background:var(--line);color:var(--muted);cursor:default}
+.s{background:transparent;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;width:100%;margin-bottom:8px}
+label{font-size:14px;color:var(--muted);display:block;margin-bottom:2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line);gap:8px}
+.tag{font-size:13px;border-radius:6px;padding:0 8px;color:#fff;background:var(--muted)}.tag.ok{background:var(--ok)}
+.empty,.note{color:var(--muted);font-size:14px}.empty{text-align:center;padding:20px 0}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--nav);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:6}
+nav button{background:none;border:0;color:var(--muted);padding:6px 10px;border-radius:8px}
+nav button.on{color:var(--flame);font-weight:700;background:color-mix(in srgb,var(--flame) 12%,transparent)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9;max-width:90%}
+#toast.on{opacity:1}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--sun);outline-offset:1px}
+</style>
+</head>
+<body>
+<header><span>FF Arena</span><button class="s" id="out" hidden>লগআউট</button></header>
+<main id="app"><p class="empty">লোড হচ্ছে...</p></main>
+<nav id="nav" hidden></nav>
+<div id="toast" role="status"></div>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import{getAuth,onAuthStateChanged,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import{getFirestore,collection,doc,getDoc,setDoc,addDoc,deleteDoc,onSnapshot}from"https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+var app=initializeApp({apiKey:"AIzaSyASP75SeRZqHqeiCeEChA1JE7HtoPUV61E",authDomain:"ff-tournament-ae85d.firebaseapp.com",projectId:"ff-tournament-ae85d",storageBucket:"ff-tournament-ae85d.firebasestorage.app",messagingSenderId:"744945522971",appId:"1:744945522971:web:f68b528d0460b272fa1bbe"});
+var auth=getAuth(app),db=getFirestore(app);
+var uid=null,admin=false,tab="play",M=[],J={},P={},R={},RM={},unsubs=[],roomSubs={},mode="login";
+function $(i){return document.getElementById(i)}
+function bn(n){return String(n).replace(/\d/g,function(d){return"০১২৩৪৫৬৭৮৯"[d]})}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function toast(t){var e=$("toast");e.textContent=t;e.className="on";setTimeout(function(){e.className=""},2600)}
+function fail(){toast("কাজটা হয়নি। ইন্টারনেট দেখুন বা আবার চেষ্টা করুন")}
+function me(){return J[uid]||{ign:"",ff:"",m:{}}}
+function cnt(id){return Object.keys(J).filter(function(k){return J[k].m&&J[k].m[id]}).length}
+function fmt(ms){var d=new Date(ms),h=d.getHours(),m=d.getMinutes();return d.toLocaleDateString("en-GB")+" "+(h%12||12)+":"+(m<10?"0":"")+m+(h>=12?" pm":" am")}
+function paidFor(id,u){return P[id]&&P[id].u&&P[id].u[u]}
+function card(m){
+  var c=cnt(m.id),full=c>=m.tot,j=me().m&&me().m[m.id],started=Date.now()>=m.start;
+  var b=j?'<button class="p" disabled>জয়েন করা আছে</button>':(full?'<button class="p" disabled>ম্যাচ ফুল</button>':(started?'<button class="p" disabled>ম্যাচ শুরু হয়ে গেছে</button>':'<button class="p" data-join="'+m.id+'">জয়েন করুন · '+bn(m.fee)+' TK</button>'));
+  var rm=RM[m.id],room=j&&rm&&rm.room?'<p><b>রুম আইডি:</b> '+esc(rm.room)+' &nbsp; <b>পাসওয়ার্ড:</b> '+esc(rm.pass)+'</p>':'';
+  var ok=paidFor(m.id,uid),pay=j?'<p><span class="tag'+(ok?' ok':'')+'">'+(ok?'পেমেন্ট কনফার্ম':'পেমেন্ট কনফার্মের অপেক্ষায়')+'</span></p>'+(ok&&!room?'<p class="note">রুম ডিটেইলস এখনো দেওয়া হয়নি।</p>':''):'';
+  return '<div class="card"><div class="ch"><b>'+esc(m.t)+'</b><span class="id">#'+esc(m.id.slice(0,5))+'</span></div><div class="when">'+fmt(m.start)+'</div><div class="stats"><div><small>প্রাইজ</small><b>'+bn(m.prize)+' TK</b></div><div><small>ধরন</small><b>'+esc(m.type)+'</b></div><div><small>এন্ট্রি ফি</small><b>'+bn(m.fee)+' TK</b></div><div><small>প্রতি কিল</small><b>'+bn(m.kill)+' TK</b></div><div><small>ম্যাপ</small><b>'+esc(m.map)+'</b></div><div><small>স্পট</small><b>'+bn(c)+'/'+bn(m.tot)+'</b></div></div><div class="bar"><div style="width:'+Math.min(100,Math.round(c/m.tot*100))+'%"></div></div><div class="sp"><span>'+(full?'কোনো স্পট বাকি নেই':bn(m.tot-c)+'টি স্পট বাকি')+'</span></div>'+b+pay+room+'</div>'
+}
+function authView(){
+  $("nav").hidden=true;$("out").hidden=true;
+  $("app").innerHTML='<h2>'+(mode==="login"?"লগইন":"নতুন অ্যাকাউন্ট")+'</h2><div class="box"><label for="un">ইউজারনেম (ইংরেজি অক্ষর বা সংখ্যা)</label><input id="un" autocapitalize="none" autocomplete="username"><label for="pw">পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)</label><input id="pw" type="password" autocomplete="current-password"><button class="p" id="go">'+(mode==="login"?"লগইন করুন":"অ্যাকাউন্ট খুলুন")+'</button><p class="note"><button class="s" id="sw">'+(mode==="login"?"নতুন অ্যাকাউন্ট খুলুন":"আগের অ্যাকাউন্টে লগইন")+'</button></p></div>'
+}
+function render(){
+  if(!uid){authView();return}
+  $("out").hidden=false;$("nav").hidden=false;
+  var tabs=[["play","খেলুন"],["mine","আমার ম্যাচ"],["res","রেজাল্ট"],["prof","প্রোফাইল"]];
+  if(admin)tabs.push(["adm","অ্যাডমিন"]);
+  $("nav").innerHTML=tabs.map(function(t){return '<button data-t="'+t[0]+'" class="'+(tab===t[0]?"on":"")+'">'+t[1]+'</button>'}).join("");
+  var h="",mine=me();
+  if(tab==="play"){h='<h2>ম্যাচ লিস্ট</h2>'+(M.length?M.map(card).join(""):'<p class="empty">এখনো কোনো ম্যাচ নেই।'+(admin?' অ্যাডমিন ট্যাব থেকে ম্যাচ বানান।':'')+'</p>')}
+  else if(tab==="mine"){var l=M.filter(function(m){return mine.m&&mine.m[m.id]});h='<h2>আমার ম্যাচ</h2>'+(l.length?l.map(card).join(""):'<p class="empty">এখনো কোনো ম্যাচে জয়েন করেননি।</p>')}
+  else if(tab==="res"){var ids=Object.keys(R);h='<h2>রেজাল্ট</h2>'+(ids.length?ids.map(function(id){var m=M.filter(function(x){return x.id===id})[0],rows=(R[id].rows||[]).slice().sort(function(a,b){return a.pos-b.pos});return '<div class="box"><b>'+esc(m?m.t:"ম্যাচ")+'</b>'+rows.map(function(r){return '<div class="row"><span>'+bn(r.pos)+'. '+esc(r.n)+'</span><span>'+bn(r.k)+' কিল</span></div>'}).join("")+'</div>'}).join(""):'<p class="empty">এখনো কোনো রেজাল্ট দেওয়া হয়নি।</p>')}
+  else if(tab==="prof"){h='<h2>প্রোফাইল</h2><div class="box"><label for="ign">ইন-গেম নাম</label><input id="ign" value="'+esc(mine.ign)+'"><label for="ff">Free Fire UID</label><input id="ff" inputmode="numeric" value="'+esc(mine.ff)+'"><button class="p" id="sv">সেভ করুন</button></div>'}
+  else if(tab==="adm"){
+    h='<h2>নতুন ম্যাচ</h2><div class="box"><label for="a_t">ম্যাচের নাম</label><input id="a_t" placeholder="Solo Time | Mobile"><div class="g2"><div><label for="a_type">ধরন</label><select id="a_type"><option>Solo</option><option>Duo</option><option>Squad</option></select></div><div><label for="a_map">ম্যাপ</label><input id="a_map" value="Bermuda"></div><div><label for="a_fee">এন্ট্রি ফি (TK)</label><input id="a_fee" type="number" inputmode="numeric" value="10"></div><div><label for="a_prize">প্রাইজ (TK)</label><input id="a_prize" type="number" inputmode="numeric" value="400"></div><div><label for="a_kill">প্রতি কিল (TK)</label><input id="a_kill" type="number" inputmode="numeric" value="5"></div><div><label for="a_tot">মোট স্পট</label><input id="a_tot" type="number" inputmode="numeric" value="32"></div></div><label for="a_when">শুরুর সময়</label><input id="a_when" type="datetime-local"><button class="p" id="mk">ম্যাচ বানান</button></div>'+
+    M.map(function(m){
+      var ps=Object.keys(J).filter(function(k){return J[k].m&&J[k].m[m.id]});
+      var rm=RM[m.id]||{},rr=(R[m.id]&&R[m.id].rows||[]).map(function(r){return r.n+","+r.pos+","+r.k}).join("\n");
+      return '<div class="box"><div class="ch"><b>'+esc(m.t)+'</b><button class="s" data-del="'+m.id+'">মুছুন</button></div><p class="note">জয়েন করেছে '+bn(ps.length)+'/'+bn(m.tot)+'</p>'+
+      ps.map(function(k){return '<div class="row"><span>'+esc(J[k].ign)+' <small class="note">'+esc(J[k].ff)+'</small></span><button class="s" data-pay="'+m.id+'|'+k+'">'+(paidFor(m.id,k)?'✓ পেইড':'পেমেন্ট নিয়েছি')+'</button></div>'}).join("")+
+      '<div class="g2" style="margin-top:10px"><div><label>রুম আইডি</label><input id="rm_'+m.id+'" value="'+esc(rm.room)+'"></div><div><label>পাসওয়ার্ড</label><input id="rp_'+m.id+'" value="'+esc(rm.pass)+'"></div></div><button class="s" data-room="'+m.id+'">রুম সেভ করুন</button>'+
+      '<label style="margin-top:10px">রেজাল্ট (প্রতি লাইনে: নাম,পজিশন,কিল)</label><textarea id="rs_'+m.id+'" rows="4">'+esc(rr)+'</textarea><button class="s" data-res="'+m.id+'">রেজাল্ট দিন</button></div>'
+    }).join("")
+  }
+  $("app").innerHTML=h
+}
+var tmr;function rr(){clearTimeout(tmr);var a=document.activeElement;if(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&uid){tmr=setTimeout(rr,3000);return}render()}
+function watchRooms(){
+  var mine=me().m||{};
+  Object.keys(mine).forEach(function(id){if(roomSubs[id])return;roomSubs[id]=onSnapshot(doc(db,"rooms",id),function(s){RM[id]=s.exists()?s.data():null;rr()},function(){})})
+}
+function start(){
+  unsubs.push(onSnapshot(collection(db,"matches"),function(s){M=s.docs.map(function(d){return Object.assign({id:d.id},d.data())}).sort(function(a,b){return a.start-b.start});rr()},fail));
+  unsubs.push(onSnapshot(collection(db,"joins"),function(s){J={};s.docs.forEach(function(d){J[d.id]=d.data()});watchRooms();rr()},fail));
+  unsubs.push(onSnapshot(collection(db,"paid"),function(s){P={};s.docs.forEach(function(d){P[d.id]=d.data()});rr()},fail));
+  unsubs.push(onSnapshot(collection(db,"results"),function(s){R={};s.docs.forEach(function(d){R[d.id]=d.data()});rr()},fail));
+}
+function stop(){unsubs.forEach(function(u){u()});unsubs=[];Object.keys(roomSubs).forEach(function(k){roomSubs[k]()});roomSubs={};M=[];J={};P={};R={};RM={}}
+onAuthStateChanged(auth,async function(u){
+  stop();
+  if(!u){uid=null;admin=false;render();return}
+  uid=u.uid;
+  try{var a=await getDoc(doc(db,"config","admin"));admin=a.exists()&&a.data().uid===uid}catch(e){admin=false}
+  start();render()
+});
+function email(){var u=$("un").value.trim().toLowerCase().replace(/[^a-z0-9_]/g,"");return u?u+"@ffarena.app":""}
+document.addEventListener("click",async function(e){
+  var t=e.target.closest("button");if(!t)return;var d=t.dataset;
+  try{
+  if(t.id==="sw"){mode=mode==="login"?"reg":"login";render()}
+  else if(t.id==="go"){var em=email(),pw=$("pw").value;if(!em){toast("ইংরেজি অক্ষরে ইউজারনেম দিন");return}if(pw.length<6){toast("পাসওয়ার্ড কমপক্ষে ৬ অক্ষর");return}
+    if(mode==="login"){await signInWithEmailAndPassword(auth,em,pw)}
+    else{var c=await createUserWithEmailAndPassword(auth,em,pw);try{var a=await getDoc(doc(db,"config","admin"));if(!a.exists()){await setDoc(doc(db,"config","admin"),{uid:c.user.uid});admin=true;toast("আপনি এই অ্যাপের অ্যাডমিন হয়েছেন")}}catch(x){}}}
+  else if(t.id==="out"){await signOut(auth)}
+  else if(d.t){tab=d.t;render();window.scrollTo(0,0)}
+  else if(d.join){var mn=me();if(!mn.ign){toast("আগে প্রোফাইলে ইন-গেম নাম দিন");tab="prof";render();return}
+    var m2=Object.assign({},mn.m||{});m2[d.join]=true;await setDoc(doc(db,"joins",uid),{ign:mn.ign,ff:mn.ff||"",m:m2});toast("জয়েন হয়েছে। এন্ট্রি ফি অ্যাডমিনকে পাঠিয়ে কনফার্ম করে নিন")}
+  else if(t.id==="sv"){await setDoc(doc(db,"joins",uid),{ign:$("ign").value.trim(),ff:$("ff").value.trim(),m:me().m||{}});toast("প্রোফাইল সেভ হয়েছে")}
+  else if(t.id==="mk"){var t0=$("a_t").value.trim(),w=$("a_when").value;if(!t0||!w){toast("নাম ও সময় দিন");return}
+    await addDoc(collection(db,"matches"),{t:t0,type:$("a_type").value,map:$("a_map").value.trim()||"Bermuda",fee:+$("a_fee").value||0,prize:+$("a_prize").value||0,kill:+$("a_kill").value||0,tot:+$("a_tot").value||2,start:new Date(w).getTime()});toast("ম্যাচ তৈরি হয়েছে");tab="play";render()}
+  else if(d.del){if(confirm("ম্যাচটা মুছবেন?"))await deleteDoc(doc(db,"matches",d.del))}
+  else if(d.pay){var p=d.pay.split("|"),n=Object.assign({},(P[p[0]]&&P[p[0]].u)||{});if(n[p[1]])delete n[p[1]];else n[p[1]]=true;await setDoc(doc(db,"paid",p[0]),{u:n})}
+  else if(d.room){await setDoc(doc(db,"rooms",d.room),{room:$("rm_"+d.room).value.trim(),pass:$("rp_"+d.room).value.trim()});toast("রুম ডিটেইলস সেভ হয়েছে")}
+  else if(d.res){var rows=$("rs_"+d.res).value.split("\n").map(function(l){var a=l.split(",");return{n:(a[0]||"").trim(),pos:+a[1]||0,k:+a[2]||0}}).filter(function(r){return r.n&&r.pos});await setDoc(doc(db,"results",d.res),{rows:rows});toast("রেজাল্ট সেভ হয়েছে")}
+  }catch(err){var c2=err&&err.code||"";toast(c2==="auth/email-already-in-use"?"এই ইউজারনেম আগে নেওয়া হয়েছে":c2==="auth/invalid-credential"||c2==="auth/wrong-password"||c2==="auth/user-not-found"?"ইউজারনেম বা পাসওয়ার্ড ভুল":"কাজটা হয়নি: "+c2)}
+});
+render();
+</script>
+</body>
+</html>
